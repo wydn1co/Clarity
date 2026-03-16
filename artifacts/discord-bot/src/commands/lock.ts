@@ -10,12 +10,12 @@ import { errorEmbed, successEmbed, modLogEmbed } from "../utils/embeds.js";
 
 export const data = new SlashCommandBuilder()
   .setName("lock")
-  .setDescription("🔐 Lock or unlock a channel")
+  .setDescription("Lock or unlock a channel")
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .addSubcommand((sub) =>
     sub
       .setName("channel")
-      .setDescription("Lock a channel so members can't send messages")
+      .setDescription("Lock a channel so members cannot send messages")
       .addChannelOption((opt) =>
         opt
           .setName("channel")
@@ -66,7 +66,6 @@ export async function execute(
   const everyoneRole = interaction.guild.roles.everyone;
 
   if (sub === "channel") {
-    // Lock
     try {
       await targetChannel.permissionOverwrites.edit(everyoneRole, {
         SendMessages: false,
@@ -74,7 +73,7 @@ export async function execute(
       });
     } catch {
       await interaction.reply({
-        embeds: [errorEmbed("Error", "I don't have permission to lock this channel.")],
+        embeds: [errorEmbed("Error", "I do not have permission to lock this channel.")],
         ephemeral: true,
       });
       return;
@@ -89,8 +88,8 @@ export async function execute(
       embeds: [
         {
           color: 0xed4245,
-          title: "🔐 Channel Locked",
-          description: `This channel has been locked by <@${interaction.user.id}>.\n📋 **Reason:** ${reason}`,
+          title: "Channel Locked",
+          description: `This channel has been locked by <@${interaction.user.id}>.\nReason: ${reason}`,
           timestamp: new Date().toISOString(),
         },
       ],
@@ -102,9 +101,9 @@ export async function execute(
         await logChannel.send({
           embeds: [
             modLogEmbed("Channel Locked", [
-              { name: "📺 Channel", value: `<#${targetChannel.id}>`, inline: true },
-              { name: "👮 Moderator", value: `<@${interaction.user.id}>`, inline: true },
-              { name: "📋 Reason", value: reason, inline: false },
+              { name: "Channel", value: `<#${targetChannel.id}>`, inline: true },
+              { name: "Moderator", value: `<@${interaction.user.id}>`, inline: true },
+              { name: "Reason", value: reason, inline: false },
             ], 0xed4245),
           ],
         });
@@ -112,11 +111,10 @@ export async function execute(
     }
 
     await interaction.reply({
-      embeds: [successEmbed("Channel Locked", `🔐 <#${targetChannel.id}> has been locked.\n📋 **Reason:** ${reason}`)],
+      embeds: [successEmbed("Channel Locked", `<#${targetChannel.id}> has been locked.\nReason: ${reason}`)],
       ephemeral: true,
     });
   } else if (sub === "unlock") {
-    // Unlock
     try {
       await targetChannel.permissionOverwrites.edit(everyoneRole, {
         SendMessages: null,
@@ -124,23 +122,21 @@ export async function execute(
       });
     } catch {
       await interaction.reply({
-        embeds: [errorEmbed("Error", "I don't have permission to unlock this channel.")],
+        embeds: [errorEmbed("Error", "I do not have permission to unlock this channel.")],
         ephemeral: true,
       });
       return;
     }
 
-    config.lockedChannels = config.lockedChannels.filter(
-      (id) => id !== targetChannel.id
-    );
+    config.lockedChannels = config.lockedChannels.filter((id) => id !== targetChannel.id);
     saveConfig(interaction.guildId, config);
 
     await targetChannel.send({
       embeds: [
         {
           color: 0x57f287,
-          title: "🔓 Channel Unlocked",
-          description: `This channel has been unlocked by <@${interaction.user.id}>.\n📋 **Reason:** ${reason}`,
+          title: "Channel Unlocked",
+          description: `This channel has been unlocked by <@${interaction.user.id}>.\nReason: ${reason}`,
           timestamp: new Date().toISOString(),
         },
       ],
@@ -152,9 +148,9 @@ export async function execute(
         await logChannel.send({
           embeds: [
             modLogEmbed("Channel Unlocked", [
-              { name: "📺 Channel", value: `<#${targetChannel.id}>`, inline: true },
-              { name: "👮 Moderator", value: `<@${interaction.user.id}>`, inline: true },
-              { name: "📋 Reason", value: reason, inline: false },
+              { name: "Channel", value: `<#${targetChannel.id}>`, inline: true },
+              { name: "Moderator", value: `<@${interaction.user.id}>`, inline: true },
+              { name: "Reason", value: reason, inline: false },
             ], 0x57f287),
           ],
         });
@@ -162,7 +158,7 @@ export async function execute(
     }
 
     await interaction.reply({
-      embeds: [successEmbed("Channel Unlocked", `🔓 <#${targetChannel.id}> has been unlocked.\n📋 **Reason:** ${reason}`)],
+      embeds: [successEmbed("Channel Unlocked", `<#${targetChannel.id}> has been unlocked.\nReason: ${reason}`)],
       ephemeral: true,
     });
   }

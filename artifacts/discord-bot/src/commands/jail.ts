@@ -5,14 +5,13 @@ import {
   GuildMember,
   TextChannel,
   ChannelType,
-  PermissionOverwrites,
 } from "discord.js";
 import { loadConfig, saveConfig, JailEntry } from "../utils/serverConfig.js";
-import { errorEmbed, successEmbed, modLogEmbed } from "../utils/embeds.js";
+import { errorEmbed, modLogEmbed } from "../utils/embeds.js";
 
 export const data = new SlashCommandBuilder()
   .setName("jail")
-  .setDescription("⛓️ Jail a user — confine them to the jail channel only")
+  .setDescription("Confine a user to the jail channel only")
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .addUserOption((opt) =>
     opt.setName("user").setDescription("The user to jail").setRequired(true)
@@ -32,24 +31,16 @@ function parseDuration(dur: string): number | null {
   if (!match) return null;
   const amount = parseInt(match[1]);
   const unit = match[2].toLowerCase();
-  const multipliers: Record<string, number> = {
-    s: 1000,
-    m: 60_000,
-    h: 3_600_000,
-    d: 86_400_000,
-  };
+  const multipliers: Record<string, number> = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 };
   return Date.now() + amount * multipliers[unit];
 }
 
 function formatDuration(ms: number): string {
   const diff = ms - Date.now();
-  if (diff <= 0) return "expired";
+  if (diff <= 0) return "Expired";
   const hours = Math.floor(diff / 3_600_000);
   const minutes = Math.floor((diff % 3_600_000) / 60_000);
-  if (hours > 24) {
-    const days = Math.floor(hours / 24);
-    return `${days}d ${hours % 24}h`;
-  }
+  if (hours > 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
   return `${hours}h ${minutes}m`;
 }
 
@@ -83,7 +74,7 @@ export async function execute(
   const jailChannel = interaction.guild.channels.cache.get(config.jailChannelId) as TextChannel | undefined;
   if (!jailChannel) {
     await interaction.reply({
-      embeds: [errorEmbed("Error", "Jail channel not found. Please reconfigure with `/setup jailchannel`.")],
+      embeds: [errorEmbed("Error", "Jail channel not found. Reconfigure with `/setup jailchannel`.")],
       ephemeral: true,
     });
     return;
@@ -91,19 +82,16 @@ export async function execute(
 
   await interaction.deferReply();
 
-  // Save original roles
   const originalRoles = target.roles.cache
     .filter((r) => r.id !== interaction.guild!.id)
     .map((r) => r.id);
 
-  // Remove all roles
   try {
     await target.roles.set([], `Jailed by ${interaction.user.tag}: ${reason}`);
   } catch {
-    // Continue even if we can't remove roles
+    // Continue even if role removal fails
   }
 
-  // Deny view permission on all text channels
   const allChannels = interaction.guild.channels.cache.filter(
     (ch) => ch.type === ChannelType.GuildText && ch.id !== config.jailChannelId
   );
@@ -115,11 +103,10 @@ export async function execute(
         SendMessages: false,
       });
     } catch {
-      // ignore permission errors on some channels
+      // ignore
     }
   }
 
-  // Allow jailed user to see and send in jail channel only
   try {
     await jailChannel.permissionOverwrites.create(target.id, {
       ViewChannel: true,
@@ -131,6 +118,7 @@ export async function execute(
   }
 
   const expiresAt = durationStr ? parseDuration(durationStr) : null;
+  const durationDisplay = expiresAt ? formatDuration(expiresAt) : "Permanent";
 
   const jailEntry: JailEntry = {
     userId: target.id,
@@ -144,21 +132,16 @@ export async function execute(
   config.jails[target.id] = jailEntry;
   saveConfig(interaction.guildId, config);
 
-  const durationDisplay = expiresAt
-    ? `⏱️ ${formatDuration(expiresAt)}`
-    : "♾️ Permanent";
-
-  // Notify jailed user
   try {
     await target.user.send({
       embeds: [
         {
           color: 0xed4245,
-          title: `⛓️ You have been jailed in **${interaction.guild.name}**`,
+          title: `You have been jailed in ${interaction.guild.name}`,
           fields: [
-            { name: "📋 Reason", value: reason, inline: false },
-            { name: "⏱️ Duration", value: durationDisplay, inline: true },
-            { name: "👮 Moderator", value: interaction.user.tag, inline: true },
+            { name: "Reason", value: reason, inline: false },
+            { name: "Duration", value: durationDisplay, inline: true },
+            { name: "Moderator", value: interaction.user.tag, inline: true },
           ],
           timestamp: new Date().toISOString(),
         },
@@ -168,18 +151,17 @@ export async function execute(
     // DMs disabled
   }
 
-  // Log to log channel
   if (config.logChannelId) {
     const logChannel = interaction.guild.channels.cache.get(config.logChannelId) as TextChannel | undefined;
     if (logChannel) {
       await logChannel.send({
         embeds: [
           modLogEmbed("Member Jailed", [
-            { name: "👤 User", value: `<@${target.id}> (${target.user.tag})`, inline: true },
-            { name: "👮 Moderator", value: `<@${interaction.user.id}>`, inline: true },
-            { name: "⏱️ Duration", value: durationDisplay, inline: true },
-            { name: "📋 Reason", value: reason, inline: false },
-            { name: "🔒 Jail Channel", value: `<#${config.jailChannelId}>`, inline: true },
+            { name: "User", value: `<@${target.id}> (${target.user.tag})`, inline: true },
+            { name: "Moderator", value: `<@${interaction.user.id}>`, inline: true },
+            { name: "Duration", value: durationDisplay, inline: true },
+            { name: "Jail Channel", value: `<#${config.jailChannelId}>`, inline: true },
+            { name: "Reason", value: reason, inline: false },
           ], 0xed4245),
         ],
       });
@@ -190,11 +172,11 @@ export async function execute(
     embeds: [
       {
         color: 0xed4245,
-        title: "⛓️ User Jailed",
+        title: "Member Jailed",
         fields: [
-          { name: "👤 User", value: `<@${target.id}> (${target.user.tag})`, inline: true },
-          { name: "⏱️ Duration", value: durationDisplay, inline: true },
-          { name: "📋 Reason", value: reason, inline: false },
+          { name: "User", value: `<@${target.id}> (${target.user.tag})`, inline: true },
+          { name: "Duration", value: durationDisplay, inline: true },
+          { name: "Reason", value: reason, inline: false },
         ],
         timestamp: new Date().toISOString(),
       },

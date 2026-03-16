@@ -10,38 +10,25 @@ import { errorEmbed } from "../utils/embeds.js";
 
 export const data = new SlashCommandBuilder()
   .setName("embed")
-  .setDescription("🎨 Build and send a custom embed message")
+  .setDescription("Build and send a custom embed message")
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .addStringOption((opt) =>
     opt.setName("title").setDescription("Embed title").setRequired(true).setMaxLength(256)
   )
   .addStringOption((opt) =>
-    opt
-      .setName("description")
-      .setDescription("Embed description")
-      .setRequired(true)
-      .setMaxLength(4096)
+    opt.setName("description").setDescription("Embed body text").setRequired(true).setMaxLength(4096)
   )
   .addStringOption((opt) =>
-    opt
-      .setName("color")
-      .setDescription("Embed color as hex (e.g. #5865F2). Default: blurple")
-      .setRequired(false)
+    opt.setName("color").setDescription("Hex color code (e.g. #5865F2)").setRequired(false)
   )
   .addStringOption((opt) =>
     opt.setName("footer").setDescription("Footer text").setRequired(false).setMaxLength(2048)
   )
   .addStringOption((opt) =>
-    opt
-      .setName("image")
-      .setDescription("Image URL to attach to embed")
-      .setRequired(false)
+    opt.setName("image").setDescription("Image URL to attach").setRequired(false)
   )
   .addStringOption((opt) =>
-    opt
-      .setName("thumbnail")
-      .setDescription("Thumbnail URL (small image on right)")
-      .setRequired(false)
+    opt.setName("thumbnail").setDescription("Thumbnail URL (small image top-right)").setRequired(false)
   )
   .addChannelOption((opt) =>
     opt
@@ -65,18 +52,13 @@ export async function execute(
     (interaction.channel as TextChannel);
 
   if (!channel) {
-    await interaction.reply({
-      embeds: [errorEmbed("Error", "Invalid channel.")],
-      ephemeral: true,
-    });
+    await interaction.reply({ embeds: [errorEmbed("Error", "Invalid channel.")], ephemeral: true });
     return;
   }
 
-  // Parse color
   let color: number = 0x5865f2;
   if (colorInput) {
-    const cleaned = colorInput.replace("#", "");
-    const parsed = parseInt(cleaned, 16);
+    const parsed = parseInt(colorInput.replace("#", ""), 16);
     if (!isNaN(parsed)) color = parsed;
   }
 
@@ -92,15 +74,10 @@ export async function execute(
 
   try {
     await channel.send({ embeds: [embed] });
-    await interaction.reply({
-      content: `✅ Embed sent in ${channel}`,
-      ephemeral: true,
-    });
+    await interaction.reply({ content: `Embed sent in ${channel}.`, ephemeral: true });
   } catch {
     await interaction.reply({
-      embeds: [
-        errorEmbed("Error", "Could not send embed. Check my permissions in that channel."),
-      ],
+      embeds: [errorEmbed("Error", "Could not send the embed. Check my permissions in that channel.")],
       ephemeral: true,
     });
   }

@@ -7,13 +7,15 @@ import {
   SlashCommandBuilder,
   REST,
   Routes,
+  ActivityType,
 } from "discord.js";
 import { loadConfig, saveConfig } from "./utils/serverConfig.js";
-import { getAIResponse } from "./utils/ai.js";
+import { startTime, formatUptime } from "./utils/uptime.js";
 
-// Import all commands
+// Commands
 import * as setup from "./commands/setup.js";
 import * as servercount from "./commands/servercount.js";
+import * as serverinfo from "./commands/serverinfo.js";
 import * as dm from "./commands/dm.js";
 import * as dmall from "./commands/dmall.js";
 import * as nuke from "./commands/nuke.js";
@@ -24,7 +26,6 @@ import * as unjail from "./commands/unjail.js";
 import * as tempkick from "./commands/tempkick.js";
 import * as tempban from "./commands/tempban.js";
 import * as lock from "./commands/lock.js";
-import * as ai from "./commands/ai.js";
 import * as help from "./commands/help.js";
 
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
@@ -32,15 +33,10 @@ if (!TOKEN) {
   throw new Error("DISCORD_BOT_TOKEN environment variable is required.");
 }
 
-// Build command collection
-const commands = new Collection<
-  string,
-  { data: SlashCommandBuilder; execute: (i: ChatInputCommandInteraction) => Promise<void> }
->();
-
 const commandModules = [
   setup,
   servercount,
+  serverinfo,
   dm,
   dmall,
   nuke,
@@ -51,9 +47,13 @@ const commandModules = [
   tempkick,
   tempban,
   lock,
-  ai,
   help,
 ];
+
+const commands = new Collection<
+  string,
+  { data: SlashCommandBuilder; execute: (i: ChatInputCommandInteraction) => Promise<void> }
+>();
 
 for (const mod of commandModules) {
   commands.set(mod.data.name, mod as any);
@@ -69,26 +69,39 @@ const client = new Client({
   ],
 });
 
-// Register slash commands when bot is ready
+function updateStatus(readyClient: Client): void {
+  const uptime = formatUptime(Date.now() - startTime);
+  readyClient.user?.setActivity(`claritydevs | Up ${uptime}`, {
+    type: ActivityType.Streaming,
+    url: "https://www.twitch.tv/claritydevs",
+  });
+}
+
 client.once(Events.ClientReady, async (readyClient) => {
-  console.log(`✅ Logged in as ${readyClient.user.tag}`);
-  console.log(`🌐 Serving ${readyClient.guilds.cache.size} servers`);
+  console.log(`Logged in as ${readyClient.user.tag}`);
+  console.log(`Serving ${readyClient.guilds.cache.size} servers`);
+
+  // Set streaming status immediately
+  updateStatus(readyClient);
 
   // Register slash commands globally
   const rest = new REST().setToken(TOKEN!);
   const commandData = commandModules.map((m) => m.data.toJSON());
 
   try {
-    console.log("⏳ Registering slash commands...");
+    console.log("Registering slash commands...");
     await rest.put(Routes.applicationCommands(readyClient.user.id), {
       body: commandData,
     });
-    console.log(`✅ Registered ${commandData.length} slash commands globally`);
+    console.log(`Registered ${commandData.length} slash commands`);
   } catch (err) {
-    console.error("❌ Failed to register slash commands:", err);
+    console.error("Failed to register slash commands:", err);
   }
 
-  // Check and auto-unban temp-banned users every minute
+  // Update status every 30 seconds
+  setInterval(() => updateStatus(readyClient), 30_000);
+
+  // Check expired temp bans and jails every 60 seconds
   setInterval(async () => {
     for (const [guildId, guild] of readyClient.guilds.cache) {
       const config = loadConfig(guildId);
@@ -98,22 +111,20 @@ client.once(Events.ClientReady, async (readyClient) => {
         if (ban.expiresAt <= Date.now()) {
           try {
             await guild.members.unban(userId, "Temp ban expired");
-            console.log(`✅ Unbanned ${userId} from ${guildId}`);
+            console.log(`Unbanned ${userId} from ${guildId}`);
           } catch {
-            // User may already be unbanned
+            // already unbanned
           }
           delete config.tempBans[userId];
           changed = true;
         }
       }
 
-      // Check and auto-unjail timed jails
       for (const [userId, jailEntry] of Object.entries(config.jails)) {
         if (jailEntry.expiresAt && jailEntry.expiresAt <= Date.now()) {
           try {
             const member = await guild.members.fetch(userId).catch(() => null);
             if (member) {
-              // Restore access to all channels
               for (const [, ch] of guild.channels.cache) {
                 if (ch.isTextBased()) {
                   try {
@@ -123,14 +134,13 @@ client.once(Events.ClientReady, async (readyClient) => {
                   }
                 }
               }
-              // Restore roles
               if (jailEntry.originalRoles.length > 0) {
                 const validRoles = jailEntry.originalRoles.filter((id) =>
                   guild.roles.cache.has(id)
                 );
                 await member.roles.set(validRoles, "Jail expired").catch(() => {});
               }
-              console.log(`✅ Unjailed ${userId} from ${guildId}`);
+              console.log(`Unjailed ${userId} from ${guildId}`);
             }
           } catch {
             // ignore
@@ -147,60 +157,13 @@ client.once(Events.ClientReady, async (readyClient) => {
   }, 60_000);
 });
 
-// Handle messages for AI prefix commands
-client.on(Events.MessageCreate, async (message) => {
-  if (message.author.bot) return;
-  if (!message.guild) return;
-
-  const config = loadConfig(message.guild.id);
-  const prefix = config.prefix;
-
-  if (!message.content.startsWith(prefix)) return;
-
-  const content = message.content.slice(prefix.length).trim();
-  if (!content) return;
-
-  // Simple AI response for prefix-based queries
-  if (content.toLowerCase().startsWith("ai ") || content.toLowerCase() === "ai") {
-    const prompt = content.slice(2).trim();
-    if (!prompt) {
-      await message.reply("🤖 Please provide a question after the `ai` command!");
-      return;
-    }
-
-    const typing = await message.channel.sendTyping();
-    try {
-      const response = await getAIResponse(
-        prompt,
-        "You are a helpful Discord bot named Nexus. Be concise, friendly, and use emojis."
-      );
-      await message.reply({
-        embeds: [
-          {
-            color: 0x5865f2,
-            title: "🤖 AI Response",
-            description: response,
-            footer: { text: `Responded to ${message.author.tag}` },
-            timestamp: new Date().toISOString(),
-          },
-        ],
-      });
-    } catch {
-      await message.reply("❌ AI is unavailable right now. Try again later.");
-    }
-  }
-});
-
 // Handle slash commands
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   const command = commands.get(interaction.commandName);
   if (!command) {
-    await interaction.reply({
-      content: "❌ Unknown command.",
-      ephemeral: true,
-    });
+    await interaction.reply({ content: "Unknown command.", ephemeral: true });
     return;
   }
 
@@ -208,22 +171,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await command.execute(interaction);
   } catch (err) {
     console.error(`Error executing /${interaction.commandName}:`, err);
-    const errorMessage = {
-      content: "❌ An error occurred while executing this command.",
-      ephemeral: true,
-    };
+    const msg = { content: "An error occurred while running this command.", ephemeral: true };
     if (interaction.replied || interaction.deferred) {
-      await interaction.followUp(errorMessage);
+      await interaction.followUp(msg);
     } else {
-      await interaction.reply(errorMessage);
+      await interaction.reply(msg);
     }
   }
 });
 
-// Handle guild join
 client.on(Events.GuildCreate, (guild) => {
-  console.log(`✅ Joined new server: ${guild.name} (${guild.id})`);
-  loadConfig(guild.id); // Initialize config
+  console.log(`Joined server: ${guild.name} (${guild.id})`);
+  loadConfig(guild.id);
 });
 
 client.login(TOKEN);

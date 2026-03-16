@@ -3,7 +3,7 @@ import { EmbedBuilder, ColorResolvable } from "discord.js";
 export function successEmbed(title: string, description: string): EmbedBuilder {
   return new EmbedBuilder()
     .setColor(0x57f287)
-    .setTitle(`✅ ${title}`)
+    .setTitle(title)
     .setDescription(description)
     .setTimestamp();
 }
@@ -11,7 +11,7 @@ export function successEmbed(title: string, description: string): EmbedBuilder {
 export function errorEmbed(title: string, description: string): EmbedBuilder {
   return new EmbedBuilder()
     .setColor(0xed4245)
-    .setTitle(`❌ ${title}`)
+    .setTitle(title)
     .setDescription(description)
     .setTimestamp();
 }
@@ -19,7 +19,7 @@ export function errorEmbed(title: string, description: string): EmbedBuilder {
 export function infoEmbed(title: string, description: string): EmbedBuilder {
   return new EmbedBuilder()
     .setColor(0x5865f2)
-    .setTitle(`ℹ️ ${title}`)
+    .setTitle(title)
     .setDescription(description)
     .setTimestamp();
 }
@@ -27,7 +27,7 @@ export function infoEmbed(title: string, description: string): EmbedBuilder {
 export function warnEmbed(title: string, description: string): EmbedBuilder {
   return new EmbedBuilder()
     .setColor(0xfee75c)
-    .setTitle(`⚠️ ${title}`)
+    .setTitle(title)
     .setDescription(description)
     .setTimestamp();
 }
@@ -39,7 +39,7 @@ export function modLogEmbed(
 ): EmbedBuilder {
   return new EmbedBuilder()
     .setColor(color)
-    .setTitle(`🔨 Moderation | ${action}`)
+    .setTitle(`Moderation — ${action}`)
     .addFields(fields)
     .setTimestamp();
 }

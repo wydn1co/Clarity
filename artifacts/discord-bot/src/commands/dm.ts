@@ -7,10 +7,10 @@ import { successEmbed, errorEmbed } from "../utils/embeds.js";
 
 export const data = new SlashCommandBuilder()
   .setName("dm")
-  .setDescription("📨 Send a direct message to a user")
+  .setDescription("Send a direct message to a user")
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .addUserOption((opt) =>
-    opt.setName("user").setDescription("The user to DM").setRequired(true)
+    opt.setName("user").setDescription("The user to message").setRequired(true)
   )
   .addStringOption((opt) =>
     opt
@@ -31,33 +31,21 @@ export async function execute(
       embeds: [
         {
           color: 0x5865f2,
-          title: `📨 Message from ${interaction.guild?.name ?? "a server"}`,
+          title: `Message from ${interaction.guild?.name ?? "a server"}`,
           description: message,
-          footer: {
-            text: `Sent by ${interaction.user.tag}`,
-          },
+          footer: { text: `Sent by ${interaction.user.tag}` },
           timestamp: new Date().toISOString(),
         },
       ],
     });
 
     await interaction.reply({
-      embeds: [
-        successEmbed(
-          "DM Sent",
-          `✉️ Successfully sent a DM to **${target.tag}**.`
-        ),
-      ],
+      embeds: [successEmbed("Message Sent", `Direct message delivered to **${target.tag}**.`)],
       ephemeral: true,
     });
   } catch {
     await interaction.reply({
-      embeds: [
-        errorEmbed(
-          "DM Failed",
-          `❌ Could not send a DM to **${target.tag}**. They may have DMs disabled.`
-        ),
-      ],
+      embeds: [errorEmbed("Message Failed", `Could not send a DM to **${target.tag}**. They may have DMs disabled.`)],
       ephemeral: true,
     });
   }

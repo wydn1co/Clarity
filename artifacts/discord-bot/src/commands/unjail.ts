@@ -10,17 +10,13 @@ import { errorEmbed, successEmbed, modLogEmbed } from "../utils/embeds.js";
 
 export const data = new SlashCommandBuilder()
   .setName("unjail")
-  .setDescription("🔓 Release a jailed user")
+  .setDescription("Release a jailed user and restore their access")
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .addUserOption((opt) =>
     opt.setName("user").setDescription("The user to release").setRequired(true)
   )
   .addStringOption((opt) =>
-    opt
-      .setName("reason")
-      .setDescription("Reason for unjailing")
-      .setRequired(false)
-      .setMaxLength(1000)
+    opt.setName("reason").setDescription("Reason for release").setRequired(false).setMaxLength(1000)
   );
 
 export async function execute(
@@ -52,45 +48,39 @@ export async function execute(
 
   await interaction.deferReply();
 
-  // Remove permission overrides from all channels
-  const allChannels = interaction.guild.channels.cache.filter(
-    (ch) => ch.type === 0 // GuildText
-  );
+  for (const [, ch] of interaction.guild.channels.cache) {
+    if (ch.isTextBased()) {
+      try {
+        await (ch as TextChannel).permissionOverwrites.delete(target.id);
+      } catch {
+        // ignore
+      }
+    }
+  }
 
-  for (const [, ch] of allChannels) {
+  if (jailEntry.originalRoles.length > 0) {
     try {
-      await (ch as TextChannel).permissionOverwrites.delete(target.id);
+      const validRoles = jailEntry.originalRoles.filter((id) =>
+        interaction.guild!.roles.cache.has(id)
+      );
+      await target.roles.set(validRoles, `Unjailed by ${interaction.user.tag}: ${reason}`);
     } catch {
       // ignore
     }
   }
 
-  // Restore original roles
-  if (jailEntry.originalRoles.length > 0) {
-    try {
-      const rolesToRestore = jailEntry.originalRoles.filter((id) =>
-        interaction.guild!.roles.cache.has(id)
-      );
-      await target.roles.set(rolesToRestore, `Unjailed by ${interaction.user.tag}: ${reason}`);
-    } catch {
-      // ignore role errors
-    }
-  }
-
-  // Remove from config
   delete config.jails[target.id];
   saveConfig(interaction.guildId, config);
 
-  // Notify user
   try {
     await target.user.send({
       embeds: [
         {
           color: 0x57f287,
-          title: `🔓 You have been released in **${interaction.guild.name}**`,
+          title: `You have been released in ${interaction.guild.name}`,
           fields: [
-            { name: "📋 Reason", value: reason, inline: false },
-            { name: "👮 Moderator", value: interaction.user.tag, inline: true },
+            { name: "Reason", value: reason, inline: false },
+            { name: "Moderator", value: interaction.user.tag, inline: true },
           ],
           timestamp: new Date().toISOString(),
         },
@@ -100,16 +90,15 @@ export async function execute(
     // DMs disabled
   }
 
-  // Log to log channel
   if (config.logChannelId) {
     const logChannel = interaction.guild.channels.cache.get(config.logChannelId) as TextChannel | undefined;
     if (logChannel) {
       await logChannel.send({
         embeds: [
           modLogEmbed("Member Unjailed", [
-            { name: "👤 User", value: `<@${target.id}> (${target.user.tag})`, inline: true },
-            { name: "👮 Moderator", value: `<@${interaction.user.id}>`, inline: true },
-            { name: "📋 Reason", value: reason, inline: false },
+            { name: "User", value: `<@${target.id}> (${target.user.tag})`, inline: true },
+            { name: "Moderator", value: `<@${interaction.user.id}>`, inline: true },
+            { name: "Reason", value: reason, inline: false },
           ], 0x57f287),
         ],
       });
@@ -117,11 +106,6 @@ export async function execute(
   }
 
   await interaction.editReply({
-    embeds: [
-      successEmbed(
-        "User Released",
-        `🔓 **${target.user.tag}** has been unjailed.\n📋 **Reason:** ${reason}`
-      ),
-    ],
+    embeds: [successEmbed("Member Released", `**${target.user.tag}** has been unjailed.\nReason: ${reason}`)],
   });
 }

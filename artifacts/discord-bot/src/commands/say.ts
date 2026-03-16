@@ -9,19 +9,19 @@ import { errorEmbed } from "../utils/embeds.js";
 
 export const data = new SlashCommandBuilder()
   .setName("say")
-  .setDescription("🗣️ Make the bot say something in a channel")
+  .setDescription("Send a message as the bot in a channel")
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .addStringOption((opt) =>
     opt
       .setName("message")
-      .setDescription("What the bot should say")
+      .setDescription("The message content")
       .setRequired(true)
       .setMaxLength(2000)
   )
   .addChannelOption((opt) =>
     opt
       .setName("channel")
-      .setDescription("Channel to send the message in (default: current channel)")
+      .setDescription("Channel to send in (default: current channel)")
       .setRequired(false)
       .addChannelTypes(ChannelType.GuildText)
   );
@@ -35,24 +35,16 @@ export async function execute(
     (interaction.channel as TextChannel);
 
   if (!channel) {
-    await interaction.reply({
-      embeds: [errorEmbed("Error", "Invalid channel.")],
-      ephemeral: true,
-    });
+    await interaction.reply({ embeds: [errorEmbed("Error", "Invalid channel.")], ephemeral: true });
     return;
   }
 
   try {
     await channel.send(message);
-    await interaction.reply({
-      content: `✅ Message sent in ${channel}`,
-      ephemeral: true,
-    });
+    await interaction.reply({ content: `Message sent in ${channel}.`, ephemeral: true });
   } catch {
     await interaction.reply({
-      embeds: [
-        errorEmbed("Error", "Could not send the message. Check my permissions."),
-      ],
+      embeds: [errorEmbed("Error", "Could not send the message. Check my permissions in that channel.")],
       ephemeral: true,
     });
   }

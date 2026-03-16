@@ -6,23 +6,20 @@ import {
   TextChannel,
 } from "discord.js";
 import { loadConfig, saveConfig, TempBanEntry } from "../utils/serverConfig.js";
-import { errorEmbed, successEmbed, modLogEmbed } from "../utils/embeds.js";
+import { errorEmbed, modLogEmbed } from "../utils/embeds.js";
 
 export const data = new SlashCommandBuilder()
   .setName("tempban")
-  .setDescription("🔨 Temporarily ban a user from the server")
+  .setDescription("Temporarily ban a user from the server")
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .addUserOption((opt) =>
-    opt.setName("user").setDescription("The user to temp ban").setRequired(true)
+    opt.setName("user").setDescription("The user to ban").setRequired(true)
   )
   .addStringOption((opt) =>
     opt.setName("reason").setDescription("Reason for the ban").setRequired(true)
   )
   .addStringOption((opt) =>
-    opt
-      .setName("duration")
-      .setDescription("Ban duration (e.g. 10m, 2h, 1d, 7d)")
-      .setRequired(true)
+    opt.setName("duration").setDescription("Ban duration (e.g. 10m, 2h, 1d, 7d)").setRequired(true)
   )
   .addIntegerOption((opt) =>
     opt
@@ -38,18 +35,13 @@ function parseDuration(dur: string): number | null {
   if (!match) return null;
   const amount = parseInt(match[1]);
   const unit = match[2].toLowerCase();
-  const multipliers: Record<string, number> = {
-    s: 1000,
-    m: 60_000,
-    h: 3_600_000,
-    d: 86_400_000,
-  };
+  const multipliers: Record<string, number> = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 };
   return Date.now() + amount * multipliers[unit];
 }
 
 function formatDuration(expiresAt: number): string {
   const diff = expiresAt - Date.now();
-  if (diff <= 0) return "expired";
+  if (diff <= 0) return "Expired";
   const days = Math.floor(diff / 86_400_000);
   const hours = Math.floor((diff % 86_400_000) / 3_600_000);
   const minutes = Math.floor((diff % 3_600_000) / 60_000);
@@ -91,18 +83,17 @@ export async function execute(
 
   await interaction.deferReply();
 
-  // Notify user before ban
   try {
     await targetUser.send({
       embeds: [
         {
           color: 0xed4245,
-          title: `🔨 You have been temp-banned from **${interaction.guild.name}**`,
+          title: `You have been banned from ${interaction.guild.name}`,
           fields: [
-            { name: "📋 Reason", value: reason, inline: false },
-            { name: "⏱️ Duration", value: formatDuration(expiresAt), inline: true },
-            { name: "📅 Expires", value: `<t:${Math.floor(expiresAt / 1000)}:F>`, inline: true },
-            { name: "👮 Moderator", value: interaction.user.tag, inline: true },
+            { name: "Reason", value: reason, inline: false },
+            { name: "Duration", value: formatDuration(expiresAt), inline: true },
+            { name: "Expires", value: `<t:${Math.floor(expiresAt / 1000)}:F>`, inline: true },
+            { name: "Moderator", value: interaction.user.tag, inline: true },
           ],
           timestamp: new Date().toISOString(),
         },
@@ -112,13 +103,11 @@ export async function execute(
     // DMs disabled
   }
 
-  // Apply ban
   await interaction.guild.members.ban(targetUser.id, {
     reason: `Temp ban by ${interaction.user.tag}: ${reason}`,
     deleteMessageSeconds: deleteMessages * 86400,
   });
 
-  // Save to config
   const config = loadConfig(interaction.guildId);
   const banEntry: TempBanEntry = {
     userId: targetUser.id,
@@ -129,18 +118,17 @@ export async function execute(
   config.tempBans[targetUser.id] = banEntry;
   saveConfig(interaction.guildId, config);
 
-  // Log
   if (config.logChannelId) {
     const logChannel = interaction.guild.channels.cache.get(config.logChannelId) as TextChannel | undefined;
     if (logChannel) {
       await logChannel.send({
         embeds: [
           modLogEmbed("Member Temp-Banned", [
-            { name: "👤 User", value: `${targetUser.tag} (${targetUser.id})`, inline: true },
-            { name: "👮 Moderator", value: `<@${interaction.user.id}>`, inline: true },
-            { name: "⏱️ Duration", value: formatDuration(expiresAt), inline: true },
-            { name: "📅 Expires", value: `<t:${Math.floor(expiresAt / 1000)}:F>`, inline: true },
-            { name: "📋 Reason", value: reason, inline: false },
+            { name: "User", value: `${targetUser.tag} (${targetUser.id})`, inline: true },
+            { name: "Moderator", value: `<@${interaction.user.id}>`, inline: true },
+            { name: "Duration", value: formatDuration(expiresAt), inline: true },
+            { name: "Expires", value: `<t:${Math.floor(expiresAt / 1000)}:F>`, inline: true },
+            { name: "Reason", value: reason, inline: false },
           ], 0xed4245),
         ],
       });
@@ -151,12 +139,12 @@ export async function execute(
     embeds: [
       {
         color: 0xed4245,
-        title: "🔨 User Temp-Banned",
+        title: "Member Temp-Banned",
         fields: [
-          { name: "👤 User", value: `${targetUser.tag}`, inline: true },
-          { name: "⏱️ Duration", value: formatDuration(expiresAt), inline: true },
-          { name: "📅 Expires", value: `<t:${Math.floor(expiresAt / 1000)}:F>`, inline: true },
-          { name: "📋 Reason", value: reason, inline: false },
+          { name: "User", value: targetUser.tag, inline: true },
+          { name: "Duration", value: formatDuration(expiresAt), inline: true },
+          { name: "Expires", value: `<t:${Math.floor(expiresAt / 1000)}:F>`, inline: true },
+          { name: "Reason", value: reason, inline: false },
         ],
         timestamp: new Date().toISOString(),
       },

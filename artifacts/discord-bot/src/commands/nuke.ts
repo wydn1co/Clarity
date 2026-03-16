@@ -10,7 +10,7 @@ import { loadConfig } from "../utils/serverConfig.js";
 
 export const data = new SlashCommandBuilder()
   .setName("nuke")
-  .setDescription("💥 Clear ALL messages in a channel (nuke it)")
+  .setDescription("Clear all messages in a channel by cloning and deleting it")
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .addChannelOption((opt) =>
     opt
@@ -24,10 +24,7 @@ export async function execute(
   interaction: ChatInputCommandInteraction
 ): Promise<void> {
   if (!interaction.guild) {
-    await interaction.reply({
-      embeds: [errorEmbed("Error", "This command can only be used in a server.")],
-      ephemeral: true,
-    });
+    await interaction.reply({ embeds: [errorEmbed("Error", "Server only.")], ephemeral: true });
     return;
   }
 
@@ -36,55 +33,42 @@ export async function execute(
     (interaction.channel as TextChannel);
 
   if (!target || target.type !== ChannelType.GuildText) {
-    await interaction.reply({
-      embeds: [errorEmbed("Error", "Invalid channel.")],
-      ephemeral: true,
-    });
+    await interaction.reply({ embeds: [errorEmbed("Error", "Invalid channel.")], ephemeral: true });
     return;
   }
 
   await interaction.deferReply({ ephemeral: true });
 
   try {
-    // Clone the channel to effectively delete all messages
     const position = target.position;
-    const newChannel = await target.clone({
-      reason: `Nuked by ${interaction.user.tag}`,
-    });
+    const newChannel = await target.clone({ reason: `Nuked by ${interaction.user.tag}` });
     await newChannel.setPosition(position);
     await target.delete(`Nuked by ${interaction.user.tag}`);
 
-    // Send nuke announcement in the new channel
     await newChannel.send({
       embeds: [
         {
           color: 0xed4245,
-          title: "💥 NUKED",
-          description: `This channel was nuked by **${interaction.user.tag}**\n\n💣 All messages have been erased.`,
-          image: {
-            url: "https://media.giphy.com/media/HhTXt43pk1I1W/giphy.gif",
-          },
-          footer: { text: "Channel nuked • All previous messages are gone" },
+          title: "Channel Nuked",
+          description: `This channel was nuked by **${interaction.user.tag}**.\nAll previous messages have been erased.`,
+          footer: { text: "Channel Nuke" },
           timestamp: new Date().toISOString(),
         },
       ],
     });
 
-    // Log it
     const config = loadConfig(interaction.guildId!);
     if (config.logChannelId) {
-      const logChannel = interaction.guild.channels.cache.get(
-        config.logChannelId
-      ) as TextChannel | undefined;
+      const logChannel = interaction.guild.channels.cache.get(config.logChannelId) as TextChannel | undefined;
       if (logChannel) {
         await logChannel.send({
           embeds: [
             {
               color: 0xed4245,
-              title: "💥 Channel Nuked",
+              title: "Moderation — Channel Nuked",
               fields: [
-                { name: "🔫 Nuked By", value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },
-                { name: "📺 Channel", value: `<#${newChannel.id}> (#${newChannel.name})`, inline: true },
+                { name: "Moderator", value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },
+                { name: "Channel", value: `<#${newChannel.id}> (#${newChannel.name})`, inline: true },
               ],
               timestamp: new Date().toISOString(),
             },
@@ -97,15 +81,13 @@ export async function execute(
       embeds: [
         {
           color: 0x57f287,
-          title: "💥 Nuke Successful",
-          description: `Channel <#${newChannel.id}> has been nuked!`,
+          title: "Channel Nuked",
+          description: `<#${newChannel.id}> has been nuked by **${interaction.user.tag}**.`,
           timestamp: new Date().toISOString(),
         },
       ],
     });
   } catch (err) {
-    await interaction.editReply({
-      embeds: [errorEmbed("Nuke Failed", `Error: ${String(err)}`)],
-    });
+    await interaction.editReply({ embeds: [errorEmbed("Nuke Failed", String(err))] });
   }
 }
