@@ -11,6 +11,7 @@ import {
 } from "discord.js";
 import { loadConfig, saveConfig } from "./utils/serverConfig.js";
 import { startTime, formatUptime } from "./utils/uptime.js";
+import { handlePrefixMessage } from "./handlers/prefixCommands.js";
 
 // Commands
 import * as setup from "./commands/setup.js";
@@ -27,6 +28,10 @@ import * as tempkick from "./commands/tempkick.js";
 import * as tempban from "./commands/tempban.js";
 import * as lock from "./commands/lock.js";
 import * as help from "./commands/help.js";
+import * as timeout from "./commands/timeout.js";
+import * as untimeout from "./commands/untimeout.js";
+import * as warn from "./commands/warn.js";
+import * as warns from "./commands/warns.js";
 
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
 if (!TOKEN) {
@@ -48,6 +53,10 @@ const commandModules = [
   tempban,
   lock,
   help,
+  timeout,
+  untimeout,
+  warn,
+  warns,
 ];
 
 const commands = new Collection<
@@ -81,10 +90,8 @@ client.once(Events.ClientReady, async (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag}`);
   console.log(`Serving ${readyClient.guilds.cache.size} servers`);
 
-  // Set streaming status immediately
   updateStatus(readyClient);
 
-  // Register slash commands globally
   const rest = new REST().setToken(TOKEN!);
   const commandData = commandModules.map((m) => m.data.toJSON());
 
@@ -98,10 +105,8 @@ client.once(Events.ClientReady, async (readyClient) => {
     console.error("Failed to register slash commands:", err);
   }
 
-  // Update status every 30 seconds
   setInterval(() => updateStatus(readyClient), 30_000);
 
-  // Check expired temp bans and jails every 60 seconds
   setInterval(async () => {
     for (const [guildId, guild] of readyClient.guilds.cache) {
       const config = loadConfig(guildId);
@@ -178,6 +183,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await interaction.reply(msg);
     }
   }
+});
+
+// Handle prefix commands
+client.on(Events.MessageCreate, async (message) => {
+  await handlePrefixMessage(message, client);
 });
 
 client.on(Events.GuildCreate, (guild) => {

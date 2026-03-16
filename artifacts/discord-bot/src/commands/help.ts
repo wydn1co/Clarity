@@ -3,6 +3,7 @@ import {
   ChatInputCommandInteraction,
 } from "discord.js";
 import { startTime, formatUptime } from "../utils/uptime.js";
+import { loadConfig } from "../utils/serverConfig.js";
 
 export const data = new SlashCommandBuilder()
   .setName("help")
@@ -12,13 +13,14 @@ export async function execute(
   interaction: ChatInputCommandInteraction
 ): Promise<void> {
   const uptime = formatUptime(Date.now() - startTime);
+  const prefix = interaction.guildId ? loadConfig(interaction.guildId).prefix : "!";
 
   await interaction.reply({
     embeds: [
       {
         color: 0x2b2d31,
         title: "Command Reference",
-        description: "All moderation commands require **Administrator** permission.",
+        description: `All moderation commands require **Administrator** or **Moderate Members** permission.\nSlash commands available via \`/\` — prefix commands available via \`${prefix}\``,
         fields: [
           {
             name: "Configuration",
@@ -52,11 +54,17 @@ export async function execute(
           {
             name: "Moderation",
             value: [
-              "`/nuke [channel]` — Clear all messages in a channel",
+              "`/warn <user> <reason>` — Issue a formal warning",
+              "`/warns view <user>` — View a user's warning record",
+              "`/warns remove <user> <id>` — Remove a specific warning",
+              "`/warns clear <user>` — Clear all warnings for a user",
+              "`/timeout <user> [duration] [reason]` — Timeout a user (max 28d)",
+              "`/untimeout <user> [reason]` — Remove a user's timeout",
               "`/jail <user> <reason> [duration]` — Restrict user to jail channel",
               "`/unjail <user> [reason]` — Release a jailed user",
               "`/tempkick <user> <reason> <duration>` — Kick a user temporarily",
               "`/tempban <user> <reason> <duration>` — Ban a user temporarily",
+              "`/nuke [channel]` — Clear all messages in a channel",
               "`/lock channel [channel] [reason]` — Lock a channel",
               "`/lock unlock [channel] [reason]` — Unlock a channel",
             ].join("\n"),
@@ -64,7 +72,12 @@ export async function execute(
           },
           {
             name: "Duration Format",
-            value: "`10s` = 10 seconds  `5m` = 5 minutes  `2h` = 2 hours  `1d` = 1 day",
+            value: "`10s` = 10 seconds  `5m` = 5 minutes  `2h` = 2 hours  `1d` = 1 day  `28d` = max timeout",
+            inline: false,
+          },
+          {
+            name: "Prefix Commands",
+            value: `All commands above are also available using the server prefix \`${prefix}\`.\nExample: \`${prefix}warn @user spamming\` — \`${prefix}timeout @user 10m rule violation\``,
             inline: false,
           },
         ],
