@@ -212,13 +212,13 @@ importers:
       openai:
         specifier: ^4.103.0
         version: 4.104.0(ws@8.19.0)(zod@3.25.76)
+      tsx:
+        specifier: 'catalog:'
+        version: 4.21.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 25.3.5
-      tsx:
-        specifier: 'catalog:'
-        version: 4.21.0
 
   artifacts/mockup-sandbox:
     devDependencies:

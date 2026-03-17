@@ -2,7 +2,7 @@
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["npm install -g pnpm@10.26.1", "pnpm install --frozen-lockfile"]
+cmds = ["npm install -g pnpm@10.26.1", "pnpm install"]
 
 [start]
-cmd = "pnpm --filter @workspace/discord-bot run dev"
+cmd = "pnpm --filter @workspace/discord-bot run start"
